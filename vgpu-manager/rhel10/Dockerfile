@@ -1,4 +1,4 @@
-# Copyright (c) 2025, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2026, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-FROM nvcr.io/nvidia/cuda:13.3.1-base-ubi9
+FROM registry.access.redhat.com/ubi10/ubi:10.2-1784668814
 
 ARG DRIVER_VERSION
 ENV DRIVER_VERSION=$DRIVER_VERSION
@@ -36,7 +36,7 @@ RUN chmod +x NVIDIA-Linux-${DRIVER_ARCH}-${DRIVER_VERSION}-vgpu-kvm.run
 COPY nvidia-driver /usr/local/bin
 COPY ocp_dtk_entrypoint /usr/local/bin
 
-RUN dnf install -y pciutils && \
+RUN dnf install -y gcc make kmod pciutils procps-ng && \
     dnf clean all && \
     rm -rf /var/cache/dnf/*
 
@@ -55,8 +55,5 @@ RUN if [ -n "${CVE_UPDATES}" ]; then \
     dnf update -y ${CVE_UPDATES} && \
     dnf clean all; \
     fi
-
-# Add NGC DL license from the CUDA image
-RUN mkdir /licenses && mv /NGC-DL-CONTAINER-LICENSE /licenses/NGC-DL-CONTAINER-LICENSE
 
 ENTRYPOINT ["nvidia-driver", "init"]
