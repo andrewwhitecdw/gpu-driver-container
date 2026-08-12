@@ -1020,7 +1020,7 @@ fi
 eval set -- "${options}"
 
 ACCEPT_LICENSE=""
-MAX_THREADS=""
+MAX_THREADS=${MAX_THREADS:-$(nproc 2>/dev/null || echo 1)}
 KERNEL_VERSION=$(uname -r)
 PRIVATE_KEY=""
 PACKAGE_TAG=""
