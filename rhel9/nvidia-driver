@@ -1026,17 +1026,14 @@ if [ $# -eq 0 ]; then
 fi
 command=$1; shift
 case "${command}" in
-    init) options=$(getopt -l accept-license,max-threads: -o am: -- "$@") ;;
-    build) options=$(getopt -l accept-license,tag:,max-threads: -o a:t:m: -- "$@") ;;
+    init) if ! options=$(getopt -l accept-license,max-threads: -o am: -- "$@"); then usage; fi ;;
+    build) if ! options=$(getopt -l accept-license,tag:,max-threads: -o a:t:m: -- "$@"); then usage; fi ;;
     load) options="" ;;
-    update) options=$(getopt -l kernel:,sign:,tag:,max-threads: -o k:s:t:m: -- "$@") ;;
+    update) if ! options=$(getopt -l kernel:,sign:,tag:,max-threads: -o k:s:t:m: -- "$@"); then usage; fi ;;
     reload_nvidia_peermem) options="" ;;
     probe_nvidia_peermem) options="" ;;
     *) usage ;;
 esac
-if [ $? -ne 0 ]; then
-    usage
-fi
 eval set -- "${options}"
 
 ACCEPT_LICENSE=""
