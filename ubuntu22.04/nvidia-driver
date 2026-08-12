@@ -864,6 +864,7 @@ update() {
     if [ "${DRIVER_TYPE}" != "vgpu" ]; then
         if [ ! -e /usr/src/nvidia-${DRIVER_VERSION}/mkprecompiled ]; then
             # Install the userspace components
+            cd /drivers && \
             sh NVIDIA-Linux-$DRIVER_ARCH-$DRIVER_VERSION.run -x && \
                 cd NVIDIA-Linux-$DRIVER_ARCH-$DRIVER_VERSION && \
                 ./nvidia-installer --silent \
