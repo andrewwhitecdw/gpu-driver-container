@@ -849,7 +849,7 @@ _prepare() {
 _prepare_exclusive() {
     _prepare
 
-    exec 3> ${PID_FILE}
+    exec 3> "${PID_FILE}"
     if ! flock -n 3; then
         echo "An instance of the NVIDIA driver is already running, aborting"
         exit 1
@@ -916,7 +916,7 @@ load() {
 
 update() {
     exec 3>&2
-    if exec 2> /dev/null 4< ${PID_FILE}; then
+    if exec 2> /dev/null 4< "${PID_FILE}"; then
         if ! flock -n 4 && read pid <&4 && kill -0 "${pid}"; then
             exec > >(tee -a "/proc/${pid}/fd/1")
             exec 2> >(tee -a "/proc/${pid}/fd/2" >&3)
