@@ -1028,10 +1028,10 @@ command=$1; shift
 case "${command}" in
     init) options=$(getopt -l accept-license,max-threads: -o am: -- "$@") ;;
     build) options=$(getopt -l accept-license,tag:,max-threads: -o a:t:m: -- "$@") ;;
-    load) options="" ;;
+    load) options="--" ;;
     update) options=$(getopt -l kernel:,sign:,tag:,max-threads: -o k:s:t:m: -- "$@") ;;
-    reload_nvidia_peermem) options="" ;;
-    probe_nvidia_peermem) options="" ;;
+    reload_nvidia_peermem) options="--" ;;
+    probe_nvidia_peermem) options="--" ;;
     *) usage ;;
 esac
 if [ $? -ne 0 ]; then
