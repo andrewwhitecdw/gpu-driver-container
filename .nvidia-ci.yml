@@ -34,7 +34,7 @@ variables:
   # Define the public staging registry
   STAGING_REGISTRY: ghcr.io/nvidia
   STAGING_VERSION: "${CI_COMMIT_SHORT_SHA}"
-  PUBLISH_VERSIONS: 580.173.02
+  PUBLISH_VERSIONS: 580.178.04 595.91.07 610.57.04
 
 .image-pull-rules:
   # We delay the job start to allow the public pipeline to generate the required images.
@@ -82,6 +82,15 @@ variables:
   # Perform for each DRIVER_VERSION
   extends:
     - .driver-versions-ubuntu24.04
+    - .image-pull-generic
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - !reference [.image-pull-rules, rules]
+
+.image-pull-ubuntu26.04:
+  extends:
+    - .driver-versions-ubuntu26.04
     - .image-pull-generic
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule"
@@ -158,6 +167,11 @@ image-ubuntu24.04:
   extends:
     - .image-pull-ubuntu24.04
     - .dist-ubuntu24.04
+
+image-ubuntu26.04:
+  extends:
+    - .image-pull-ubuntu26.04
+    - .dist-ubuntu26.04
 
 image-rhel8:
   extends:
@@ -271,6 +285,17 @@ image-rocky10:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - !reference [.pipeline-trigger-rules, rules]
 
+.scan-ubuntu26.04:
+  extends:
+    - .driver-versions-ubuntu26.04
+    - .scan-generic
+  rules:
+    - !reference [.scan-rules-common, rules]
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - !reference [.pipeline-trigger-rules, rules]
+
 .scan-rhel10:
   # Repeat for each DRIVER_VERSION
   extends:
@@ -350,6 +375,22 @@ scan-ubuntu24.04-arm64:
     - .platform-arm64
   needs:
     - image-ubuntu24.04
+
+scan-ubuntu26.04-amd64:
+  extends:
+    - .scan-ubuntu26.04
+    - .dist-ubuntu26.04
+    - .platform-amd64
+  needs:
+    - image-ubuntu26.04
+
+scan-ubuntu26.04-arm64:
+  extends:
+    - .scan-ubuntu26.04
+    - .dist-ubuntu26.04
+    - .platform-arm64
+  needs:
+    - image-ubuntu26.04
 
 scan-precompiled-ubuntu24.04-amd64:
   variables:
@@ -508,6 +549,12 @@ release:ngc-ubuntu24.04:
     - .dist-ubuntu24.04
     - .driver-versions-ubuntu24.04
 
+release:ngc-ubuntu26.04:
+  extends:
+    - .release:ngc
+    - .dist-ubuntu26.04
+    - .driver-versions-ubuntu26.04
+
 release:ngc-precompiled-ubuntu24.04:
   variables:
     DIST: signed_ubuntu24.04
@@ -543,34 +590,6 @@ release:ngc-precompiled-ubuntu22.04:
     - .release:ngc-variables
   rules:
     - !reference [.precompiled-rules, rules]
-
-release:ngc-rhcos4.14:
-  extends:
-    - .release:ngc
-    - .dist-rhel9
-  variables:
-    OUT_DIST: "rhcos4.14"
-
-release:ngc-rhcos4.15:
-  extends:
-    - .release:ngc
-    - .dist-rhel9
-  variables:
-    OUT_DIST: "rhcos4.15"
-
-release:ngc-rhcos4.16:
-  extends:
-    - .release:ngc
-    - .dist-rhel9
-  variables:
-    OUT_DIST: "rhcos4.16"
-
-release:ngc-rhcos4.17:
-  extends:
-    - .release:ngc
-    - .dist-rhel9
-  variables:
-    OUT_DIST: "rhcos4.17"
 
 release:ngc-rhcos4.18:
   extends:
