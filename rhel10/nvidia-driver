@@ -259,7 +259,7 @@ _create_driver_package() (
 
     if [ -n "${PRIVATE_KEY}" ]; then
         echo "Signing NVIDIA driver kernel modules..."
-        donkey get ${PRIVATE_KEY} sh -c "PATH=${PATH}:/usr/src/linux-headers-${KERNEL_VERSION}/scripts && \
+        donkey get ${PRIVATE_KEY} sh -c "PATH=${PATH}:/usr/src/kernels/${KERNEL_VERSION}/scripts && \
           sign-file sha512 \$DONKEY_FILE pubkey.x509 nvidia.ko nvidia.ko.sign &&                          \
           sign-file sha512 \$DONKEY_FILE pubkey.x509 nvidia-modeset.ko nvidia-modeset.ko.sign &&          \
           sign-file sha512 \$DONKEY_FILE pubkey.x509 nvidia-uvm.ko"
