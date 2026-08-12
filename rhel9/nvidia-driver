@@ -95,6 +95,11 @@ _resolve_kernel_version() {
     return 0
 }
 
+_set_daemons_status() {
+    mkdir -p /run/nvidia/validations
+    echo "${1}" > /run/nvidia/validations/.driver-daemons-status
+}
+
 # Install the kernel modules header/builtin/order files and generate the kernel version string.
 _install_prerequisites() (
     local tmp_dir=$(mktemp -d)
@@ -674,7 +679,7 @@ _find_vgpu_driver_version() {
     # check if vgpu devices are present
     count=$(vgpu-util count)
     if [ $? -ne 0 ]; then
-         echo "cannot find vgpu devices on host, pleae check /var/log/vgpu-util.log for more details..."
+         echo "cannot find vgpu devices on host, please check /var/log/vgpu-util.log for more details..."
          return 0
     fi
     NUM_VGPU_DEVICES=$(echo "$count" | awk -F= '{print $2}')
@@ -704,6 +709,38 @@ _start_vgpu_topology_daemon() {
     nvidia-topologyd
 }
 
+_configure_fabric_manager() {
+    local fm_config_file=/usr/share/nvidia/nvswitch/fabricmanager.cfg
+
+    local nvfm_env_vars
+    nvfm_env_vars=$(env | grep '^NVFM_CONFIG_' || true)
+    [ -z "${nvfm_env_vars}" ] && return 0
+
+    if [ ! -f "${fm_config_file}" ]; then
+        echo "WARNING: ${fm_config_file} not found; cannot configure Fabric Manager"
+        return 0
+    fi
+
+    while IFS='=' read -r name value; do
+        local field="${name#NVFM_CONFIG_}"
+        if [ -z "${field}" ]; then
+            echo "WARNING: ignoring environment variable '${name}=' with an empty config field name"
+            continue
+        fi
+        echo "Setting Fabric Manager config ${field}=${value} in ${fm_config_file}"
+        if grep -q "^${field}=" "${fm_config_file}"; then
+            # Escape characters that are special in the replacement half of a sed
+            # s||| command (backslash, ampersand and the '|' delimiter) so that a
+            # value cannot corrupt the substitution or inject extra sed commands.
+            local sed_escaped_value
+            sed_escaped_value=$(printf '%s' "${value}" | sed -e 's/[\\&|]/\\&/g')
+            sed -i "s|^${field}=.*|${field}=${sed_escaped_value}|" "${fm_config_file}"
+        else
+            printf '\n%s=%s\n' "${field}" "${value}" >> "${fm_config_file}"
+        fi
+    done <<< "${nvfm_env_vars}"
+}
+
 _start_daemons() {
     echo "Starting NVIDIA persistence daemon..."
     nvidia-persistenced --persistence-mode
@@ -726,6 +763,7 @@ _start_daemons() {
 
     if _assert_nvlink5_system; then
         _ensure_nvlink5_prerequisites || return 1
+        _configure_fabric_manager
         echo "Starting NVIDIA fabric manager daemon for NVLink5+..."
 
         fm_config_file=/usr/share/nvidia/nvswitch/fabricmanager.cfg
@@ -736,13 +774,21 @@ _start_daemons() {
                                                --fm-config-file $fm_config_file \
                                                --fm-pid-file $fm_pid_file \
                                                --nvlsm-config-file $nvlsm_config_file \
-                                               --nvlsm-pid-file $nvlsm_pid_file
+                                               --nvlsm-pid-file $nvlsm_pid_file || return 1
+        if [ ! -z "${NVFM_CONFIG_FABRIC_MODE:-}" ] && [ "${NVFM_CONFIG_FABRIC_MODE}" == "1" ]; then
+            # We reset the GPU devices after Fabric Manager startup to clear stale FM
+            # partition data after setting FABRIC_MODE=1
+            echo "Resetting GPUs to clear stale fabric partition states..."
+            nvidia-smi -r
+        fi
 
     # If not a NVLink5+ switch, check for the presence of NVLink4 (or below) switches
     elif _assert_nvswitch_system; then
+        _configure_fabric_manager
         echo "Starting NVIDIA fabric manager daemon..."
-        nv-fabricmanager -c /usr/share/nvidia/nvswitch/fabricmanager.cfg
+        nv-fabricmanager -c /usr/share/nvidia/nvswitch/fabricmanager.cfg || return 1
     fi
+    _set_daemons_status "Ready"
 }
 
 _store_driver_digest() {
@@ -833,6 +879,7 @@ _load() {
 }
 
 init() {
+    _set_daemons_status "NotReady"
     _prepare_exclusive
 
     if _should_skip_kernel_module_reload; then
