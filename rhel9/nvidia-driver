@@ -1040,7 +1040,7 @@ fi
 eval set -- "${options}"
 
 ACCEPT_LICENSE=""
-MAX_THREADS=""
+MAX_THREADS=${MAX_THREADS:-$(nproc)}
 KERNEL_VERSION=$(uname -r)
 PRIVATE_KEY=""
 PACKAGE_TAG=""
