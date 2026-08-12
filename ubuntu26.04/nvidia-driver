@@ -1,5 +1,5 @@
 #! /bin/bash
-# Copyright (c) 2018-2020, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2018-2026, NVIDIA CORPORATION. All rights reserved.
 
 set -eu
 
@@ -18,6 +18,7 @@ TARGETARCH=${TARGETARCH:?"Missing TARGETARCH env"}
 KERNEL_MODULE_TYPE=${KERNEL_MODULE_TYPE:-auto}
 UBUNTU_PRO_TOKEN=${UBUNTU_PRO_TOKEN:-""}
 MODPROBE_CONFIG_DIR="/etc/modprobe.d"
+LOCAL_REPO_SOURCE_LIST="sources.list.d/local-nvidia.list"
 
 export DEBIAN_FRONTEND=noninteractive
 
@@ -62,6 +63,15 @@ _cleanup_package_cache() {
         echo "Cleaning up the package cache..."
         rm -rf /var/lib/apt/lists/*
     fi
+}
+
+# Refresh the package list for the local file: repo baked into the image. Reads only from the
+# image filesystem (no network access) and leaves the lists of all other sources in place.
+_update_local_repo_lists() {
+    apt-get update \
+        -o Dir::Etc::sourcelist="${LOCAL_REPO_SOURCE_LIST}" \
+        -o Dir::Etc::sourceparts="-" \
+        -o APT::Get::List-Cleanup="0"
 }
 
 _update_ca_certificates() {
@@ -118,8 +128,10 @@ _install_prerequisites() (
     echo "Installing Linux kernel module files..."
     apt-get download linux-image-${KERNEL_VERSION} && dpkg -x linux-image*.deb .
     { apt-get download linux-modules-${KERNEL_VERSION} && dpkg -x linux-modules*.deb . || true; }
-    mv lib/modules/${KERNEL_VERSION}/modules.* /lib/modules/${KERNEL_VERSION}
-    mv lib/modules/${KERNEL_VERSION}/kernel /lib/modules/${KERNEL_VERSION}
+    # Ubuntu 26.04 kernel debs ship their payload under usr/lib/modules (merged-usr paths),
+    # unlike the lib/modules payload on 24.04 and earlier.
+    mv usr/lib/modules/${KERNEL_VERSION}/modules.* /lib/modules/${KERNEL_VERSION}
+    mv usr/lib/modules/${KERNEL_VERSION}/kernel /lib/modules/${KERNEL_VERSION}
     depmod ${KERNEL_VERSION}
 
     echo "Generating Linux kernel version string..."
@@ -442,8 +454,58 @@ _unload_driver() {
     return 0
 }
 
-# Link and install the kernel modules from a precompiled package using the nvidia-installer.
+# Install the driver, dispatching on the driver type: the vgpu type installs from the
+# user-supplied .run file, all other types install from packages.
 _install_driver() {
+    if [ "${DRIVER_TYPE}" = "vgpu" ]; then
+        _install_driver_runfile
+    else
+        _install_driver_packages
+    fi
+}
+
+# Install the NVIDIA driver metapackage; its DKMS packages build the kernel modules against the
+# running kernel. Packages resolve exclusively from the local file: apt repo baked into the
+# image; the driver userspace is already part of the image rootfs.
+_install_driver_packages() {
+    local metapkg
+
+    case "${KERNEL_MODULE_TYPE}" in
+    proprietary)
+        metapkg=cuda-drivers ;;
+    open)
+        metapkg=nvidia-open ;;
+    auto)
+        # All driver branches available on Ubuntu 26.04 (>=595) support Turing+ GPUs only,
+        # where the open kernel modules are the recommended default.
+        echo "KERNEL_MODULE_TYPE=auto resolves to open on Ubuntu 26.04"
+        metapkg=nvidia-open ;;
+    *)
+        echo "invalid value for the KERNEL_MODULE_TYPE variable: ${KERNEL_MODULE_TYPE}" >&2
+        return 1 ;;
+    esac
+
+    echo "Installing NVIDIA driver metapackage ${metapkg} (kernel modules built via DKMS)..."
+    _update_local_repo_lists
+    apt-get install -y --no-install-recommends "${metapkg}"
+
+    # The kernel reads the GSP firmware from the host filesystem, not from the container.
+    # The GPU operator's driver DaemonSet therefore mounts a host directory at /lib/firmware
+    # and points the kernel's firmware search path at it. That mount hides the firmware files
+    # installed at image build, so reinstall nvidia-firmware here: dpkg writes the files
+    # again, and they land in the mounted host directory where the kernel looks for them.
+    # The .run installer gets the same result by writing the firmware at install time.
+    apt-get install --reinstall -y --no-install-recommends nvidia-firmware
+
+    # Normally a no-op: the metapackage postinst already built and installed the modules for the
+    # running kernel. It exits 0 even when it skips the build, so rerun dkms for exactly
+    # KERNEL_VERSION to surface any failure. MAX_THREADS is not honored here: the NVIDIA
+    # dkms.conf hardcodes -j$(nproc), so dkms's own -j option has no effect.
+    dkms autoinstall -k "${KERNEL_VERSION}"
+}
+
+# Install the driver and build the kernel modules using the .run installer (vgpu driver type).
+_install_driver_runfile() {
     local install_args=()
 
     if [ "${ACCEPT_LICENSE}" = "yes" ]; then
@@ -460,8 +522,8 @@ _install_driver() {
         install_args+=("-m=${kernel_type}")
     fi
 
-    # Specify the --skip-module-load flag for versions of the nvidia-installer that
-    # support it. From the nvidia-installer help output:
+    # Always pass --skip-module-load; every driver branch available on Ubuntu 26.04
+    # supports it. From the nvidia-installer help output:
     #
     #    --skip-module-load
     #         Skip the test load of the NVIDIA kernel modules after the modules are built,
@@ -472,9 +534,7 @@ _install_driver() {
     # any custom NVIDIA module parameters configured as input to the driver container
     # will not be applied.
     #
-    if [ "${DRIVER_BRANCH}" -ge "550" ]; then
-        install_args+=("--skip-module-load")
-    fi
+    install_args+=("--skip-module-load")
 
     # Install the NVIDIA driver in one step
     sh NVIDIA-Linux-$DRIVER_ARCH-$DRIVER_VERSION.run --silent \
@@ -729,6 +789,39 @@ _move_kernel_module_sources() {
     sed '9,${/^\(kernel\|LICENSE\)/!d}' .manifest > /usr/src/nvidia-${DRIVER_VERSION}/.manifest
 }
 
+# Reinstall or sync the driver userspace on the fast path (the kernel modules stay loaded),
+# dispatching on the driver type: the vgpu type reinstalls the userspace from the .run file,
+# all other types carry the userspace in the image rootfs and only sync the module sources.
+_reinstall_userspace() {
+    if [ "${DRIVER_TYPE}" = "vgpu" ]; then
+        _install_userspace_components
+        _resolve_kernel_type || return 1
+        _move_kernel_module_sources
+    else
+        _sync_kernel_module_sources
+    fi
+}
+
+# The image bakes the open-flavor kernel module sources (nvidia-kernel-source-open). When the
+# loaded modules are proprietary, install the matching source tree from the local repo so the
+# exported rootfs matches the loaded flavor. No DKMS package is installed, so no module build runs.
+_sync_kernel_module_sources() {
+    case "${KERNEL_MODULE_TYPE}" in
+    proprietary)
+        echo "Installing the proprietary kernel module sources to match the loaded kernel modules..."
+        _update_local_repo_lists
+        apt-get install -y --no-install-recommends nvidia-kernel-source
+        ;;
+    open|auto)
+        echo "Open kernel module sources are already part of the container image, nothing to install"
+        ;;
+    *)
+        echo "invalid value for the KERNEL_MODULE_TYPE variable: ${KERNEL_MODULE_TYPE}" >&2
+        return 1
+        ;;
+    esac
+}
+
 _wait_for_signal() {
     echo "Done, now waiting for signal"
     sleep infinity &
@@ -744,7 +837,8 @@ init() {
     fi
 
     echo -e "\n========== NVIDIA Software Installer ==========\n"
-    echo -e "Starting installation of NVIDIA driver version ${DRIVER_VERSION} for Linux kernel version ${KERNEL_VERSION}\n"
+    echo -e "Starting installation of NVIDIA driver version ${DRIVER_VERSION} for Linux kernel version ${KERNEL_VERSION}"
+    echo -e "Kernel module type: ${KERNEL_MODULE_TYPE}\n"
 
     exec 3> ${PID_FILE}
     if ! flock -n 3; then
@@ -761,17 +855,19 @@ init() {
     if _should_skip_kernel_module_reload; then
         echo "The NVIDIA driver is already loaded with the desired configuration, performing userspace-only install"
         _unmount_rootfs
-        _install_userspace_components
-        _resolve_kernel_type || exit 1
-        _move_kernel_module_sources
-        _start_daemons
+        _reinstall_userspace
+        # Mount the rootfs before starting the daemons: persistenced initializes the GPUs on
+        # startup, and a GPU that deinitialized across the restart needs its GSP firmware,
+        # which the kernel reads through the exported rootfs (the firmware search path points
+        # at /run/nvidia/driver/lib/firmware).
         _mount_rootfs
+        _start_daemons
         _write_kernel_update_hook
         _store_driver_digest
         echo "Userspace-only install complete"
         _wait_for_signal
     fi
- 
+
     # Full install path: unload existing driver and perform complete installation
     _unload_driver || exit 1
     _unmount_rootfs
