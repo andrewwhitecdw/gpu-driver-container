@@ -781,7 +781,7 @@ _move_kernel_module_sources() {
 _wait_for_signal() {
     echo "Done, now waiting for signal"
     sleep infinity &
-    trap "echo 'Caught signal'; _shutdown && { kill $!; exit 0; }" HUP INT QUIT PIPE TERM
+    trap "echo 'Caught signal'; _shutdown || exit 1; kill $! 2>/dev/null || true; exit 0" HUP INT QUIT PIPE TERM
     trap - EXIT
     while true; do wait $! || continue; done
     exit 0
