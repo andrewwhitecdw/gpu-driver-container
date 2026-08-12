@@ -134,6 +134,9 @@ _remove_prerequisites() {
 _kernel_requires_package() {
     local proc_mount_arg=""
 
+    # Ensure KERNEL_TYPE is resolved before building paths with it
+    [[ -n "${KERNEL_TYPE}" ]] || _resolve_kernel_type || return 1
+
     echo "Checking NVIDIA driver packages..."
     cd /usr/src/nvidia-${DRIVER_VERSION}/${KERNEL_TYPE}
 
