@@ -54,8 +54,8 @@ OUT_IMAGE_TAG = $(OUT_IMAGE_VERSION)-$(OUT_DIST)
 OUT_IMAGE = $(OUT_IMAGE_NAME):$(OUT_IMAGE_TAG)
 
 ##### Public rules #####
-DISTRIBUTIONS := ubuntu22.04 ubuntu24.04 signed_ubuntu22.04 signed_ubuntu24.04 signed_ubuntu26.04 rhel8 rhel9 rhel10 rocky8 rocky9 rocky10 precompiled_rhcos
-RHCOS_VERSIONS := rhcos4.14 rhcos4.15 rhcos4.16 rhcos4.17 rhcos4.18 rhel9.6
+DISTRIBUTIONS := ubuntu22.04 ubuntu24.04 ubuntu26.04 signed_ubuntu22.04 signed_ubuntu24.04 signed_ubuntu26.04 rhel8 rhel9 rhel10 rocky8 rocky9 rocky10 precompiled_rhcos
+RHCOS_VERSIONS := rhcos4.18 rhel9.6 rhel9.8
 PUSH_TARGETS := $(patsubst %, push-%, $(DISTRIBUTIONS))
 BASE_FROM := resolute noble jammy
 PUSH_TARGETS := $(patsubst %, push-%, $(DISTRIBUTIONS))
@@ -183,14 +183,18 @@ $(DRIVER_BUILD_TARGETS):
 
 build-rhcos%: SUBDIR = rhel9
 
+# The rocky targets reuse the rhel Dockerfiles with a Rocky Linux base image.
+# We use the -ubi image flavor published by the Rocky Enterprise Software
+# Foundation: its package set mirrors the Red Hat UBI images that the rhel
+# Dockerfiles are written against, so the same Dockerfile works unmodified.
 build-rocky8%: SUBDIR = rhel8
-build-rocky8%: DOCKER_BUILD_ARGS = --build-arg BASE_IMAGE=nvcr.io/nvidia/cuda:13.3.0-base-rockylinux8
+build-rocky8%: DOCKER_BUILD_ARGS = --build-arg BASE_IMAGE=rockylinux/rockylinux:8.10-ubi
 
 build-rocky9%: SUBDIR = rhel9
-build-rocky9%: DOCKER_BUILD_ARGS = --build-arg BASE_IMAGE=nvcr.io/nvidia/cuda:13.3.0-base-rockylinux9
+build-rocky9%: DOCKER_BUILD_ARGS = --build-arg BASE_IMAGE=rockylinux/rockylinux:9.8-ubi
 
 build-rocky10%: SUBDIR = rhel10
-build-rocky10%: DOCKER_BUILD_ARGS = --build-arg BASE_IMAGE=nvcr.io/nvidia/cuda:13.2.0-base-rockylinux10
+build-rocky10%: DOCKER_BUILD_ARGS = --build-arg BASE_IMAGE=rockylinux/rockylinux:10.2-ubi
 
 # ubuntu22.04 Precompiled Driver
 build-signed_ubuntu22.04%: DIST = ubuntu22.04
