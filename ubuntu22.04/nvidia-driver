@@ -828,7 +828,7 @@ init() {
     _resolve_kernel_type || exit 1
     _move_kernel_module_sources
 
-    if _kernel_requires_package; then
+    if ! _kernel_requires_package; then
         _update_ca_certificates
         _update_package_cache
         _enable_fips_if_required
@@ -897,7 +897,7 @@ update() {
     _enable_fips_if_required
     _resolve_kernel_version || exit 1
     _install_prerequisites
-    if _kernel_requires_package; then
+    if ! _kernel_requires_package; then
         # ensure KERNEL_TYPE is set before compiling kernel modules
         [[ -n "${KERNEL_TYPE}" ]] || _resolve_kernel_type || exit 1
         _create_driver_package
