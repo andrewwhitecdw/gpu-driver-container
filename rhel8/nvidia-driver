@@ -178,7 +178,6 @@ _install_prerequisites() (
 
 # Cleanup the prerequisites installed above.
 _remove_prerequisites() {
-    true
     if [ "${PACKAGE_TAG:-}" != "builtin" ]; then
         dnf -q -y remove kernel-headers-${KERNEL_VERSION} kernel-devel-${KERNEL_VERSION} > /dev/null
         # TODO remove module files not matching an existing driver package.
