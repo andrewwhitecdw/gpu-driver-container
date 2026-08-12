@@ -351,6 +351,7 @@ _get_module_params() {
        done <"${base_path}/nvidia-peermem.conf"
        echo "Module parameters provided for nvidia-peermem: ${NVIDIA_PEERMEM_MODULE_PARAMS[@]}"
     fi
+    return 0
 }
 
 _create_module_params_conf() {
