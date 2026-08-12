@@ -453,7 +453,7 @@ _unload_driver() {
         local pid=$(< /var/run/nvidia-persistenced/nvidia-persistenced.pid)
 
         kill -SIGTERM "${pid}"
-        for i in $(seq 1 50); do
+        for i in {1..50}; do
             kill -0 "${pid}" 2> /dev/null || break
             sleep 0.1
         done
@@ -468,7 +468,7 @@ _unload_driver() {
         local pid=$(< /var/run/nvidia-gridd/nvidia-gridd.pid)
 
         kill -SIGTERM "${pid}"
-        for i in $(seq 1 50); do
+        for i in {1..50}; do
             kill -0 "${pid}" 2> /dev/null || break
             sleep 0.1
         done
@@ -483,7 +483,7 @@ _unload_driver() {
         local pid=$(< /var/run/nvidia-topologyd/nvidia-topologyd.pid)
 
         kill -SIGTERM "${pid}"
-        for i in $(seq 1 50); do
+        for i in {1..50}; do
             kill -0 "${pid}" 2> /dev/null || break
             sleep 0.1
         done
@@ -498,7 +498,7 @@ _unload_driver() {
         local pid=$(< /var/run/nvidia-fabricmanager/nv-fabricmanager.pid)
 
         kill -SIGTERM "${pid}"
-        for i in $(seq 1 50); do
+        for i in {1..50}; do
             kill -0 "${pid}" 2> /dev/null || break
             sleep 0.1
         done
@@ -513,7 +513,7 @@ _unload_driver() {
         local pid=$(< /var/run/nvidia-fabricmanager/nvlsm.pid)
 
         kill -SIGTERM "${pid}"
-        for i in $(seq 1 50); do
+        for i in {1..50}; do
             kill -0 "${pid}" 2> /dev/null || break
             sleep 0.1
         done
