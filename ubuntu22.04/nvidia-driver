@@ -529,7 +529,7 @@ _install_driver() {
     # any custom NVIDIA module parameters configured as input to the driver container
     # will not be applied.
     #
-    if [ "${DRIVER_BRANCH}" -ge "550" ]; then
+    if [ "${DRIVER_BRANCH:-0}" -ge "550" ]; then
         install_args+=("--skip-module-load")
     fi
 
