@@ -610,7 +610,7 @@ _resolve_kernel_type() {
 }
 
 _resolve_kernel_type_from_driver_branch() {
-  [[ "${DRIVER_BRANCH}" -lt 560 ]] && KERNEL_TYPE=kernel || KERNEL_TYPE=kernel-open
+  [[ "${DRIVER_BRANCH:-0}" -lt 560 ]] && KERNEL_TYPE=kernel || KERNEL_TYPE=kernel-open
 }
 
 _find_vgpu_driver_version() {
