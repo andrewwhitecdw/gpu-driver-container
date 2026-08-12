@@ -291,8 +291,11 @@ _create_driver_package() (
 
 _assert_nvswitch_system() {
     [ -d /proc/driver/nvidia-nvswitch ] || return 1
-    entries=$(ls -1 /proc/driver/nvidia-nvswitch/devices/*)
-    if [ -z "${entries}" ]; then
+    local entries
+    shopt -s nullglob
+    entries=(/proc/driver/nvidia-nvswitch/devices/*)
+    shopt -u nullglob
+    if [ ${#entries[@]} -eq 0 ]; then
         return 1
     fi
     return 0
