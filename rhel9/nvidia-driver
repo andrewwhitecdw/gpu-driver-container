@@ -139,7 +139,7 @@ _install_prerequisites() (
     echo "Installing elfutils..."
     dnf install -q -y --releasever=${DNF_RELEASEVER} elfutils-libelf.$DRIVER_ARCH
     if ! dnf install -y --releasever=${DNF_RELEASEVER} elfutils-libelf-devel.$DRIVER_ARCH; then
-        echo "FATAL: failed to install elfutils-libel-devel. RHEL entitlement may be improperly deployed."
+        echo "FATAL: failed to install elfutils-libelf-devel. RHEL entitlement may be improperly deployed."
         exit 1
     fi
 
