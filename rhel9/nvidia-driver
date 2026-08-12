@@ -845,6 +845,7 @@ _prepare() {
 _prepare_exclusive() {
     _prepare
 
+    mkdir -p ${RUN_DIR}
     exec 3> ${PID_FILE}
     if ! flock -n 3; then
         echo "An instance of the NVIDIA driver is already running, aborting"
