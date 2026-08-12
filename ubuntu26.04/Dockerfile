@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=ubuntu:jammy-20260731.1
+ARG BASE_IMAGE=ubuntu:resolute-20260724.1
 
 FROM ${BASE_IMAGE} AS build
 
@@ -12,9 +12,6 @@ ENV DRIVER_TYPE=$DRIVER_TYPE
 SHELL ["/bin/bash", "-c"]
 
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
-
-# Remove cuda repository to avoid GPG errors
-RUN rm -f /etc/apt/sources.list.d/cuda*
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         apt-utils \
@@ -44,18 +41,17 @@ FROM ${BASE_IMAGE}
 
 SHELL ["/bin/bash", "-c"]
 
-ARG BASE_URL=https://us.download.nvidia.com/tesla
 ARG TARGETARCH
 ENV TARGETARCH=$TARGETARCH
 ARG DRIVER_VERSION
+ARG GIT_COMMIT
 ENV DRIVER_VERSION=$DRIVER_VERSION
 ENV DEBIAN_FRONTEND=noninteractive
-ARG GIT_COMMIT
 
 # Arg to indicate if driver type is either of passthrough(baremetal) or vgpu
 ARG DRIVER_TYPE=passthrough
 ENV DRIVER_TYPE=$DRIVER_TYPE
-ARG DRIVER_BRANCH=580
+ARG DRIVER_BRANCH=595
 ENV DRIVER_BRANCH=$DRIVER_BRANCH
 ARG VGPU_LICENSE_SERVER_TYPE=NLS
 ENV VGPU_LICENSE_SERVER_TYPE=$VGPU_LICENSE_SERVER_TYPE
@@ -71,9 +67,11 @@ RUN echo "TARGETARCH=$TARGETARCH"
 ADD install.sh /tmp
 
 RUN usermod -o -u 0 -g 0 _apt && \
-    /tmp/install.sh depinstall && /tmp/install.sh setup_cuda_repo && \
-    curl -fsSL -o /usr/local/bin/donkey https://github.com/3XX0/donkey/releases/download/v1.1.0/donkey && \
-    chmod +x /usr/local/bin/donkey
+    /tmp/install.sh depinstall
+
+# Install the driver payload for passthrough/baremetal types; the vgpu type installs from a
+# .run file at container start
+RUN /tmp/install.sh driver_pkgs_install
 
 COPY nvidia-driver /usr/local/bin
 
@@ -81,25 +79,7 @@ COPY --from=build /work/vgpu-util* /usr/local/bin
 
 ADD drivers drivers/
 
-# Fetch the installer, fabricmanager and libnvidia-nscq automatically for passthrough/baremetal types
-RUN if [ "$DRIVER_TYPE" != "vgpu" ]; then \
-    cd drivers && \
-    /tmp/install.sh download_installer; fi
-
-RUN /tmp/install.sh extra_pkgs_install
-
 WORKDIR  /drivers
-
-ARG PUBLIC_KEY=empty
-COPY ${PUBLIC_KEY} kernel/pubkey.x509
-
-# Install the gcc-12 package in Ubuntu 22.04 as Kernels with versions 5.19.x and 6.5.x need gcc 12.3.0 for compilation
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends gcc-12 g++-12 && \
-    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 12 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-12 12 && \
-    rm -rf /var/lib/apt/lists/*
-
 
 # Install / upgrade packages here that are required to resolve CVEs
 ARG CVE_UPDATES
