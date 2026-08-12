@@ -1017,6 +1017,8 @@ Commands:
   build  [-a | --accept-license] [-m | --max-threads MAX_THREADS]
   load
   update [-k | --kernel VERSION] [-s | --sign KEYID] [-t | --tag TAG] [-m | --max-threads MAX_THREADS]
+  reload_nvidia_peermem
+  probe_nvidia_peermem
 EOF
     exit 1
 }
