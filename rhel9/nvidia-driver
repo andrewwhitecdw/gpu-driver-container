@@ -6,6 +6,7 @@ set -eu
 RUN_DIR=/run/nvidia
 PID_FILE=${RUN_DIR}/${0##*/}.pid
 DRIVER_VERSION=${DRIVER_VERSION:?"Missing DRIVER_VERSION env"}
+DRIVER_BRANCH=${DRIVER_BRANCH:-${DRIVER_VERSION%%.*}}
 KERNEL_UPDATE_HOOK=/run/kernel/postinst.d/update-nvidia-driver
 NUM_VGPU_DEVICES=0
 NVIDIA_MODULE_PARAMS=()
