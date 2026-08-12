@@ -1061,4 +1061,4 @@ fi
 
 _resolve_rhel_version || exit 1
 
-$command
+"$command"
