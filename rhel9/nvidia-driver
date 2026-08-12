@@ -287,7 +287,7 @@ _create_driver_package() (
 
 _assert_nvswitch_system() {
     [ -d /proc/driver/nvidia-nvswitch ] || return 1
-    entries=$(ls -1 /proc/driver/nvidia-nvswitch/devices/*)
+    entries=$(ls -1 /proc/driver/nvidia-nvswitch/devices/* 2>/dev/null) || true
     if [ -z "${entries}" ]; then
         return 1
     fi
