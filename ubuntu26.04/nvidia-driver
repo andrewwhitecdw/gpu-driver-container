@@ -780,7 +780,19 @@ _resolve_kernel_type() {
 }
 
 _resolve_kernel_type_from_driver_branch() {
-  [[ "${DRIVER_BRANCH}" -lt 560 ]] && KERNEL_TYPE=kernel || KERNEL_TYPE=kernel-open
+  local driver_branch="${DRIVER_BRANCH:-}"
+  if [[ -z "${driver_branch}" ]]; then
+    echo "DRIVER_BRANCH is not set, falling back to open kernel module type" >&2
+    KERNEL_TYPE=kernel-open
+    return 0
+  fi
+  case "${driver_branch}" in
+    *[!0-9]*)
+      echo "invalid value for DRIVER_BRANCH: ${driver_branch}" >&2
+      return 1
+      ;;
+  esac
+  [[ "${driver_branch}" -lt 560 ]] && KERNEL_TYPE=kernel || KERNEL_TYPE=kernel-open
 }
 
 _move_kernel_module_sources() {
