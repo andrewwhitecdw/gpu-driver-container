@@ -477,6 +477,7 @@ _install_driver() {
     fi
 
     # Install the NVIDIA driver in one step
+    cd /drivers
     sh NVIDIA-Linux-$DRIVER_ARCH-$DRIVER_VERSION.run --silent \
                     --ui=none \
                     --no-drm \
