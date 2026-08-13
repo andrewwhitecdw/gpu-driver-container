@@ -605,7 +605,7 @@ _find_vgpu_driver_version() {
     local count=""
     local version=""
 
-    if [ "${DISABLE_VGPU_VERSION_CHECK}" = "true" ]; then
+    if [ "${DISABLE_VGPU_VERSION_CHECK:-false}" = "true" ]; then
         echo "vgpu version compatibility check is disabled"
         return 0
     fi
