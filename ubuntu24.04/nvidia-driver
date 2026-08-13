@@ -738,6 +738,28 @@ _wait_for_signal() {
     exit 0
 }
 
+# Precompile the NVIDIA kernel modules for a newly installed kernel without
+# unloading or loading the currently running modules.
+update() {
+    echo "Updating NVIDIA driver for kernel ${KERNEL_VERSION}..."
+
+    _unmount_rootfs
+    _update_ca_certificates
+    _update_package_cache
+    _enable_fips_if_required
+    _resolve_kernel_version || exit 1
+    _install_prerequisites
+    _link_ofa_kernel
+
+    _create_module_params_conf
+    _install_driver
+    _mount_rootfs
+    _write_kernel_update_hook
+    _store_driver_digest
+
+    echo "Update for kernel ${KERNEL_VERSION} complete"
+}
+
 init() {
     if [ "${DRIVER_TYPE}" = "vgpu" ]; then
         _find_vgpu_driver_version || exit 1
@@ -846,6 +868,7 @@ Usage: $0 COMMAND [ARG...]
 
 Commands:
   init   [-a | --accept-license] [-m | --max-threads MAX_THREADS]
+  update [-k | --kernel KERNEL_VERSION]
 EOF
     exit 1
 }
@@ -858,6 +881,7 @@ case "${command}" in
     init) options=$(getopt -l accept-license,max-threads: -o am: -- "$@") ;;
     reload_nvidia_peermem) options="" ;;
     probe_nvidia_peermem) options="" ;;
+    update) options=$(getopt -l kernel: -o k: -- "$@") ;;
     *) usage ;;
 esac
 if [ $? -ne 0 ]; then
