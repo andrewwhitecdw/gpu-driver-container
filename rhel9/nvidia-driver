@@ -802,7 +802,7 @@ _store_driver_digest() {
 _wait_for_signal() {
     echo "Done, now waiting for signal"
     sleep infinity &
-    trap "echo 'Caught signal'; _shutdown && { kill $!; exit 0; }" HUP INT QUIT PIPE TERM
+    trap "echo 'Caught signal'; _shutdown; kill $!; exit 0" HUP INT QUIT PIPE TERM
     trap - EXIT
     while true; do wait $! || continue; done
     exit 0
