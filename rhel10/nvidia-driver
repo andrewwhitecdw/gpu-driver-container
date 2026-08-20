@@ -654,8 +654,7 @@ _resolve_kernel_type() {
   elif [ "${KERNEL_MODULE_TYPE}" == "open" ]; then
     KERNEL_TYPE=kernel-open
   elif [ "${KERNEL_MODULE_TYPE}" == "auto" ]; then
-    kernel_module_type=$(nvidia-installer --print-recommended-kernel-module-type)
-    if [ $? -ne 0 ]; then
+    if ! kernel_module_type=$(nvidia-installer --print-recommended-kernel-module-type); then
       echo "failed to retrieve the recommended kernel module type from nvidia-installer, falling back to using the driver branch"
       _resolve_kernel_type_from_driver_branch
       return 0
@@ -681,8 +680,7 @@ _find_vgpu_driver_version() {
         return 0
     fi
     # check if vgpu devices are present
-    count=$(vgpu-util count)
-    if [ $? -ne 0 ]; then
+    if ! count=$(vgpu-util count); then
          echo "cannot find vgpu devices on host, pleae check /var/log/vgpu-util.log for more details..."
          return 0
     fi
@@ -697,8 +695,7 @@ _find_vgpu_driver_version() {
     if [ -d "/mnt/shared-nvidia-driver-toolkit/drivers" ]; then
         drivers_path="/mnt/shared-nvidia-driver-toolkit/drivers"
     fi
-    version=$(vgpu-util match -i "${drivers_path}" -c "${drivers_path}/vgpuDriverCatalog.yaml")
-    if [ $? -ne 0 ]; then
+    if ! version=$(vgpu-util match -i "${drivers_path}" -c "${drivers_path}/vgpuDriverCatalog.yaml"); then
         echo "cannot find match for compatible vgpu driver from available list, please check /var/log/vgpu-util.log for more details..."
         return 1
     fi
