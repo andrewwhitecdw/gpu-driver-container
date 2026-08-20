@@ -417,7 +417,7 @@ _load_driver() {
     echo "Loading ipmi and i2c_core kernel modules..."
     modprobe -a i2c_core ipmi_msghandler ipmi_devintf
 
-    if [[ "$RHEL_MINOR_VERSION" -ge "3" ]]; then
+    if [[ -n "$RHEL_MINOR_VERSION" && "$RHEL_MINOR_VERSION" -ge "3" ]]; then
         echo "Loading the video kernel module..."
         modprobe video
     fi
